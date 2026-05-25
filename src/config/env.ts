@@ -9,7 +9,7 @@ function stripTrailingSlash(value: string): string {
 }
 
 export const appConfig = {
-  apiBaseUrl: stripTrailingSlash(readEnv("VITE_CHATMYDOCS_API_URL", "http://localhost:8000")),
+  apiBaseUrl: stripTrailingSlash(readEnv("VITE_CHATMYDOCS_API_URL", "")),
   supabaseUrl: stripTrailingSlash(readEnv("VITE_SUPABASE_URL")),
   supabaseAnonKey: readEnv("VITE_SUPABASE_ANON_KEY"),
 };
