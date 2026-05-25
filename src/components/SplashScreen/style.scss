@@ -1,0 +1,58 @@
+.splash {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: #272b42;
+
+  &__inner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1.25rem;
+  }
+
+  &__title {
+    font-family: "Outfit", sans-serif;
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #fff;
+    letter-spacing: -0.025em;
+  }
+
+  &__dot {
+    color: #22d3a0;
+  }
+
+  &__tagline {
+    font-size: 0.8125rem;
+    color: rgba(221, 226, 240, 0.42);
+    margin-top: 0.25rem;
+    text-align: center;
+  }
+
+  &__dots {
+    display: flex;
+    gap: 6px;
+    margin-top: 0.5rem;
+  }
+
+  &__dot-pulse {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: rgba(124, 106, 245, 0.55);
+    animation: splash-pulse 0.9s ease-in-out infinite;
+
+    &:nth-child(2) { animation-delay: 0.18s; }
+    &:nth-child(3) { animation-delay: 0.36s; }
+  }
+}
+
+@keyframes splash-pulse {
+  0%, 100% { opacity: 0.3; transform: scale(0.85); }
+  50% { opacity: 1; transform: scale(1); }
+}

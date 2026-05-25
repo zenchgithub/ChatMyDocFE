@@ -1,0 +1,14 @@
+@import url("https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600&family=JetBrains+Mono:wght@400;500&display=swap");
+
+body {
+  font-family: "Outfit", "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+/* Hide scrollbars globally; surfaces on active scroll in modern browsers */
+* {
+  scrollbar-width: none;
+}
+
+*::-webkit-scrollbar {
+  display: none;
+}

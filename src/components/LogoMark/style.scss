@@ -1,0 +1,12 @@
+.logo-mark {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  background: linear-gradient(135deg, #7c6af5 0%, #22d3a0 100%);
+  border-radius: 0.625rem;
+
+  &--lg {
+    border-radius: 1rem;
+  }
+}
