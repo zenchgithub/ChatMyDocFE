@@ -902,7 +902,33 @@ function ChatInput({ onSend, onUpload, isStreaming, isUploading, onClear, defaul
 
 // ─── Source Panel ─────────────────────────────────────────────────────────────
 
+async function openAuthenticatedDocument(url: string) {
+  const { data: { session } } = await supabase.auth.getSession();
+  const accessToken = session?.access_token;
+  if (!accessToken) {
+    throw new Error("Sign in again to open this document.");
+  }
+
+  const response = await fetch(url, {
+    headers: {
+      "Authorization": `Bearer ${accessToken}`,
+    },
+  });
+
+  if (!response.ok) {
+    const body = await response.text().catch(() => "");
+    throw new Error(`Unable to open document ${response.status}: ${body}`);
+  }
+
+  const blob = await response.blob();
+  const objectUrl = URL.createObjectURL(blob);
+  window.open(objectUrl, "_blank", "noopener,noreferrer");
+  setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
+}
+
 function SourcePanel({ citation, onClose }: { citation: Citation; onClose: () => void }) {
+  const [openError, setOpenError] = useState<string | null>(null);
+
   return (
     <div className="fixed inset-0 z-50 flex justify-end" onClick={onClose}>
       <div
@@ -932,12 +958,20 @@ function SourcePanel({ citation, onClose }: { citation: Citation; onClose: () =>
 
           {citation.sourceUrl && (
             <button
-              onClick={() => window.open(citation.sourceUrl, "_blank", "noopener,noreferrer")}
+              onClick={() => {
+                setOpenError(null);
+                openAuthenticatedDocument(citation.sourceUrl!).catch((err) => {
+                  setOpenError(err instanceof Error ? err.message : "Unable to open document");
+                });
+              }}
               className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl bg-primary text-white text-sm font-medium hover:opacity-90 transition-opacity"
             >
               <ExternalLink size={14} />
               Open document
             </button>
+          )}
+          {openError && (
+            <p className="text-xs text-red-500 leading-relaxed">{openError}</p>
           )}
 
           <div>
@@ -1383,7 +1417,9 @@ function SettingsView({
                     </p>
                   </div>
                   <button
-                    onClick={() => window.open(doc.source, "_blank", "noopener,noreferrer")}
+                    onClick={() => openAuthenticatedDocument(doc.source).catch((err) => {
+                      console.error(err);
+                    })}
                     className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-black/5 transition-colors"
                     title="Open document"
                   >
