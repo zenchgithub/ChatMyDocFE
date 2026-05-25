@@ -7,7 +7,7 @@ import {
   Mail, Lock, Eye, EyeOff, ArrowRight, Loader,
   FileText, Database, Server, Globe, AlertCircle, Check,
   Copy, CheckCheck, ShieldCheck, UserPlus, RefreshCw, Trash,
-  ExternalLink, Search, Share2, Volume2,
+  ExternalLink, Search, Share2, Volume2, BookOpen,
 } from "lucide-react";
 import { supabase } from "../utils/supabase";
 import { getApiBase, streamQuery } from "../utils/streamQuery";
@@ -55,7 +55,7 @@ interface IndexedDocument {
 }
 
 type AuthMode = "signin" | "signup" | "reset";
-type AppView = "chat" | "settings";
+type AppView = "chat" | "settings" | "guide";
 interface CurrentUserAccess {
   role: string;
   is_admin: boolean;
@@ -437,14 +437,16 @@ interface SidebarInnerProps {
   activeId: string;
   onSelect: (id: string) => void;
   onNewChat: () => void;
+  onGuide: () => void;
   onDelete: (id: string) => void;
   onRename: (id: string, title: string) => void;
+  currentView: AppView;
   showClose?: boolean;
   onClose?: () => void;
 }
 
 function SidebarInner({
-  conversations, activeId, onSelect, onNewChat, onDelete, onRename, showClose, onClose,
+  conversations, activeId, onSelect, onNewChat, onGuide, onDelete, onRename, currentView, showClose, onClose,
 }: SidebarInnerProps) {
   const [hovered, setHovered] = useState<string | null>(null);
   const [renaming, setRenaming] = useState<string | null>(null);
@@ -488,6 +490,17 @@ function SidebarInner({
         >
           <Plus size={14} />
           New chat
+        </button>
+        <button
+          onClick={() => { onGuide(); onClose?.(); }}
+          className={`mt-2 flex items-center gap-2 w-full px-3 py-2.5 rounded-xl border text-sm font-medium transition-all ${
+            currentView === "guide"
+              ? "bg-primary/10 border-primary/15 text-primary"
+              : "border-border text-muted-foreground hover:text-foreground hover:bg-black/5"
+          }`}
+        >
+          <BookOpen size={14} />
+          User guide
         </button>
       </div>
 
@@ -1561,6 +1574,226 @@ function SettingsView({
   );
 }
 
+// ─── User Guide View ──────────────────────────────────────────────────────────
+
+function GuidePreview({ type }: { type: "signin" | "chat" | "source" | "upload" | "settings" | "invite" }) {
+  if (type === "signin") {
+    return (
+      <div className="rounded-xl border border-border bg-background p-5 flex items-center justify-center pointer-events-none select-none">
+        <div className="w-full max-w-xs rounded-2xl border border-border bg-card p-5 shadow-sm">
+          <div className="flex items-center gap-3 mb-5">
+            <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center">
+              <MessageSquare size={18} className="text-primary" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-foreground">ChatMyDocs.ai</p>
+              <p className="text-xs text-muted-foreground">Sign in to continue</p>
+            </div>
+          </div>
+          <label className="block text-[10px] font-bold text-muted-foreground uppercase mb-1">Email</label>
+          <input disabled value="you@example.com" className="w-full h-9 rounded-lg bg-input-background border border-border px-3 text-xs text-muted-foreground mb-3" />
+          <label className="block text-[10px] font-bold text-muted-foreground uppercase mb-1">Password</label>
+          <input disabled value="Your password" className="w-full h-9 rounded-lg bg-input-background border border-border px-3 text-xs text-muted-foreground mb-4" />
+          <button disabled className="w-full h-9 rounded-lg bg-primary text-white text-xs font-semibold">Sign in</button>
+        </div>
+      </div>
+    );
+  }
+
+  if (type === "chat") {
+    return (
+      <div className="rounded-xl border border-border bg-background p-4 flex flex-col gap-4 pointer-events-none select-none">
+        <div className="ml-auto max-w-[75%] rounded-2xl rounded-br-md bg-primary text-white px-4 py-3 text-xs">
+          What does Pontiac.pdf say about MISAEL LUGO?
+        </div>
+        <div className="max-w-[82%] rounded-2xl rounded-bl-md border border-border bg-card p-3 text-xs text-foreground">
+          <p>MISAEL LUGO appears in Pontiac.pdf on page 2 with the listed row details.</p>
+          <div className="flex flex-wrap gap-1.5 mt-3">
+            <span className="px-2 py-1 rounded-lg border border-accent/30 bg-accent/5 text-accent">Pontiac.pdf p.2</span>
+          </div>
+        </div>
+        <div className="h-12 rounded-2xl border border-border bg-input-background px-4 flex items-center justify-between text-xs text-muted-foreground">
+          Ask anything about your documents...
+          <Send size={14} className="text-primary" />
+        </div>
+      </div>
+    );
+  }
+
+  if (type === "source") {
+    return (
+      <div className="rounded-xl border border-border bg-background p-4 flex justify-end pointer-events-none select-none">
+        <div className="w-full max-w-xs rounded-xl border border-border bg-card p-4 shadow-sm">
+          <div className="flex items-center gap-2 mb-4">
+            <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center">
+              <FileText size={15} className="text-primary" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-semibold text-foreground truncate">Pontiac.pdf</p>
+              <p className="text-[11px] text-muted-foreground">Page 2</p>
+            </div>
+          </div>
+          <button disabled className="w-full h-9 rounded-lg bg-primary text-white text-xs font-semibold mb-4">Open document</button>
+          <p className="text-[10px] font-bold text-muted-foreground uppercase mb-2">Relevant text from document</p>
+          <blockquote className="text-xs text-foreground border-l-2 border-accent pl-3 leading-relaxed">
+            MISAEL LUGO 9182 A A 12-Mar...
+          </blockquote>
+        </div>
+      </div>
+    );
+  }
+
+  if (type === "upload") {
+    return (
+      <div className="rounded-xl border border-border bg-background p-4 flex flex-col justify-end pointer-events-none select-none">
+        <div className="h-12 rounded-2xl border border-border bg-input-background mb-2 px-4 flex items-center text-xs text-muted-foreground">
+          Ask anything about your documents...
+        </div>
+        <div className="flex items-center gap-2">
+          <button disabled className="h-8 px-3 rounded-lg bg-muted border border-border text-xs text-muted-foreground flex items-center gap-1.5">
+            <Paperclip size={12} />
+            Upload documents
+          </button>
+          <span className="text-xs text-muted-foreground">PDF files only</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (type === "settings") {
+    return (
+      <div className="rounded-xl border border-border bg-background p-4 space-y-3 pointer-events-none select-none">
+        <div className="rounded-xl border border-border bg-card p-3 space-y-2">
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-semibold text-foreground">Indexed documents</p>
+            <button disabled className="px-2 py-1 rounded-lg border border-border text-[11px] text-muted-foreground">Refresh</button>
+          </div>
+          {["I-485.pdf", "Pontiac.pdf", "Lease15505.pdf"].map((name) => (
+            <div key={name} className="h-10 rounded-lg bg-muted/70 px-3 flex items-center justify-between">
+              <span className="text-xs text-foreground">{name}</span>
+              <ExternalLink size={12} className="text-muted-foreground" />
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-xl border border-border bg-background p-4 space-y-3 pointer-events-none select-none">
+      <div className="rounded-xl border border-border bg-card p-4">
+        <p className="text-xs font-semibold text-foreground mb-2">Admin - Invite Users</p>
+        <div className="h-9 rounded-lg bg-muted mb-3 px-3 flex items-center text-xs text-muted-foreground">user@example.com</div>
+        <button disabled className="h-9 px-3 rounded-lg bg-primary text-white text-xs font-semibold ml-auto block">Send invite</button>
+      </div>
+      <div className="h-8 rounded-lg bg-muted px-3 flex items-center text-xs text-muted-foreground">pending@example.com</div>
+    </div>
+  );
+}
+
+function UserGuideView({ onBack }: { onBack: () => void }) {
+  const steps = [
+    {
+      title: "1. Sign in",
+      body: "Use your email and password. If you received an invitation, open the invite email first and create your password.",
+      image: "signin" as const,
+    },
+    {
+      title: "2. Ask a question",
+      body: "Ask about a specific document, person, date, amount, address, or topic. Specific questions return better answers.",
+      image: "chat" as const,
+    },
+    {
+      title: "3. Check the source",
+      body: "Click a source chip to view the document name, page number, and the exact text used for the answer.",
+      image: "source" as const,
+    },
+    {
+      title: "4. Open the document",
+      body: "Use Open document to view the PDF through your ChatMyDocs.ai account. You should not need a NAS login.",
+      image: "source" as const,
+    },
+    {
+      title: "5. Upload a PDF",
+      body: "Click Upload documents, select a PDF, and wait for upload and indexing to finish. The document then becomes searchable.",
+      image: "upload" as const,
+    },
+    {
+      title: "6. View indexed documents",
+      body: "Open Settings and refresh Indexed documents to see searchable files, pages, chunks, and document links.",
+      image: "settings" as const,
+    },
+    {
+      title: "7. Invite users",
+      body: "Admins can invite users from Settings. The invited user receives an email link and creates a password.",
+      image: "invite" as const,
+    },
+  ];
+
+  return (
+    <div className="flex-1 overflow-y-auto">
+      <div className="max-w-5xl mx-auto px-4 py-8 space-y-7">
+        <div className="flex items-center gap-3">
+          <button
+            onClick={onBack}
+            className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-black/5 transition-colors"
+          >
+            <X size={16} />
+          </button>
+          <div>
+            <h1 className="text-xl font-bold text-foreground">ChatMyDocs.ai User Guide</h1>
+            <p className="text-sm text-muted-foreground">
+              Step-by-step guide for asking questions, checking sources, uploading PDFs, and inviting users.
+            </p>
+          </div>
+        </div>
+
+        <section className="rounded-2xl border border-border bg-card p-5">
+          <div className="flex items-start gap-4">
+            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
+              <BookOpen size={18} className="text-primary" />
+            </div>
+            <div>
+              <h2 className="text-sm font-semibold text-foreground">Before you start</h2>
+              <p className="text-sm text-muted-foreground mt-1 leading-relaxed">
+                ChatMyDocs.ai answers from indexed PDF documents. If an answer has sources, open the source panel to inspect
+                the supporting text before using the answer.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <div className="grid gap-5">
+          {steps.map((step) => (
+            <section key={step.title} className="rounded-2xl border border-border bg-card overflow-hidden">
+              <div className="grid md:grid-cols-[1fr_1.25fr] gap-0">
+                <div className="p-5 flex flex-col justify-center">
+                  <h2 className="text-base font-semibold text-foreground">{step.title}</h2>
+                  <p className="text-sm text-muted-foreground mt-2 leading-relaxed">{step.body}</p>
+                </div>
+                <div className="p-4 bg-muted/40 border-t md:border-t-0 md:border-l border-border">
+                  <GuidePreview type={step.image} />
+                  <p className="text-[11px] text-muted-foreground mt-2">Disabled interface preview for this step</p>
+                </div>
+              </div>
+            </section>
+          ))}
+        </div>
+
+        <section className="rounded-2xl border border-border bg-card p-5">
+          <h2 className="text-sm font-semibold text-foreground">Troubleshooting</h2>
+          <div className="grid sm:grid-cols-2 gap-3 mt-3 text-sm text-muted-foreground">
+            <p className="rounded-xl bg-muted/60 p-3">If a document is missing, refresh Indexed documents in Settings.</p>
+            <p className="rounded-xl bg-muted/60 p-3">If a source will not open, sign out and sign back in.</p>
+            <p className="rounded-xl bg-muted/60 p-3">If upload fails, confirm the file is a PDF and try again.</p>
+            <p className="rounded-xl bg-muted/60 p-3">If an invite expires, ask an admin to send a new invitation.</p>
+          </div>
+        </section>
+      </div>
+    </div>
+  );
+}
+
 // ─── Backend admin helper ─────────────────────────────────────────────────────
 
 async function callEdgeFn(
@@ -1995,8 +2228,10 @@ export default function App() {
           activeId={activeId}
           onSelect={(id) => { setActiveId(id); setView("chat"); }}
           onNewChat={handleNewChat}
+          onGuide={() => setView("guide")}
           onDelete={handleDelete}
           onRename={handleRename}
+          currentView={view}
           mobileOpen={mobileSidebarOpen}
           onMobileClose={() => setMobileSidebarOpen(false)}
         />
@@ -2011,6 +2246,8 @@ export default function App() {
               docsLoading={docsLoading}
               onRefreshDocs={refreshIndexedDocs}
             />
+          ) : view === "guide" ? (
+            <UserGuideView onBack={() => setView("chat")} />
           ) : (
             <>
               <ChatArea
