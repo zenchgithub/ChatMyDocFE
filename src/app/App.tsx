@@ -1294,24 +1294,28 @@ function SettingsView({
   docsLoading: boolean;
   onRefreshDocs: () => void;
 }) {
-  const feVars: { key: string; value: string; note: string; configured: boolean }[] = [
+  const frontendEnvLocation = "Set this in .env.local locally, and in Vercel Project Settings -> Environment Variables for production";
+  const feVars: { key: string; value: string; note: string; configured: boolean; location: string }[] = [
     {
       key: "VITE_SUPABASE_URL",
       value: appConfig.supabaseUrl,
       note: "Supabase project URL",
       configured: envStatus.supabaseUrl,
+      location: frontendEnvLocation,
     },
     {
       key: "VITE_SUPABASE_ANON_KEY",
       value: appConfig.supabaseAnonKey,
       note: "Public anon key for browser Supabase client",
       configured: envStatus.supabaseAnonKey,
+      location: frontendEnvLocation,
     },
     {
       key: "VITE_CHATMYDOCS_API_URL",
       value: appConfig.apiBaseUrl,
       note: "FastAPI backend base URL",
       configured: envStatus.apiBaseUrl,
+      location: frontendEnvLocation,
     },
   ];
 
@@ -1417,7 +1421,11 @@ function SettingsView({
                   <span className="text-[11px] text-muted-foreground/70 truncate">{v.note}</span>
                 </div>
                 <div className="flex items-center bg-muted/60 rounded-lg px-2.5 py-1.5 gap-1 min-h-[30px]">
-                  {v.configured ? <SecretField value={v.value} /> : (
+                  {isAdmin && v.configured ? <SecretField value={v.value} /> : v.configured ? (
+                    <span className="text-xs text-muted-foreground">
+                      {v.location}
+                    </span>
+                  ) : (
                     <span className="text-xs text-red-500">Missing from .env.local</span>
                   )}
                 </div>
