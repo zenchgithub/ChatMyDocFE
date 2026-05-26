@@ -922,7 +922,33 @@ async function openAuthenticatedDocument(url: string) {
     throw new Error("Sign in again to open this document.");
   }
 
-  const response = await fetch(url, {
+  const toDocumentProxyUrl = (rawUrl: string) => {
+    if (rawUrl.startsWith("/")) return `${getApiBase()}${rawUrl}`;
+
+    try {
+      const parsed = new URL(rawUrl);
+      if (parsed.pathname === "/documents") return rawUrl;
+      if (parsed.hostname === "files.bezench.com") {
+        const filename = decodeURIComponent(parsed.pathname.split("/").filter(Boolean).pop() ?? "");
+        if (filename) {
+          return `${getApiBase()}/documents?source=${encodeURIComponent(filename)}`;
+        }
+      }
+    } catch {
+      return `${getApiBase()}/documents?source=${encodeURIComponent(rawUrl)}`;
+    }
+
+    return rawUrl;
+  };
+
+  const resolvedUrl = toDocumentProxyUrl(url);
+  const viewer = window.open("about:blank", "_blank");
+  if (viewer) {
+    viewer.opener = null;
+    viewer.document.write("<p style=\"font-family: system-ui; padding: 24px;\">Opening document...</p>");
+  }
+
+  const response = await fetch(resolvedUrl, {
     headers: {
       "Authorization": `Bearer ${accessToken}`,
     },
@@ -930,12 +956,17 @@ async function openAuthenticatedDocument(url: string) {
 
   if (!response.ok) {
     const body = await response.text().catch(() => "");
+    viewer?.close();
     throw new Error(`Unable to open document ${response.status}: ${body}`);
   }
 
   const blob = await response.blob();
   const objectUrl = URL.createObjectURL(blob);
-  window.open(objectUrl, "_blank", "noopener,noreferrer");
+  if (viewer) {
+    viewer.location.href = objectUrl;
+  } else {
+    window.open(objectUrl, "_blank", "noopener,noreferrer");
+  }
   setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
 }
 
