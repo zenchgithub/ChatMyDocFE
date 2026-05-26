@@ -61,7 +61,30 @@ interface CurrentUserAccess {
   is_admin: boolean;
 }
 
+interface ConversationSummaryResponse {
+  id: string;
+  title: string;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+interface ConversationMessageResponse {
+  role: "user" | "assistant" | "ai";
+  content: string;
+  created_at: string | null;
+}
+
 const INITIAL_CONVERSATION_ID = "conv-initial";
+
+function emptyConversation(): Conversation {
+  return {
+    id: INITIAL_CONVERSATION_ID,
+    backendId: null,
+    title: "New conversation",
+    timestamp: new Date(),
+    messages: [],
+  };
+}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -2097,13 +2120,7 @@ export default function App() {
   const [needsPasswordSetup, setNeedsPasswordSetup] = useState(false);
 
   const [view, setView] = useState<AppView>("chat");
-  const [conversations, setConversations] = useState<Conversation[]>([{
-    id: INITIAL_CONVERSATION_ID,
-    backendId: null,
-    title: "New conversation",
-    timestamp: new Date(),
-    messages: [],
-  }]);
+  const [conversations, setConversations] = useState<Conversation[]>([emptyConversation()]);
   const [activeId, setActiveId] = useState<string>(INITIAL_CONVERSATION_ID);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [sourcePanel, setSourcePanel] = useState<Citation | null>(null);
@@ -2113,6 +2130,61 @@ export default function App() {
   const [docsLoading, setDocsLoading] = useState(false);
   const [apiStatus, setApiStatus] = useState<"connected" | "unknown">("unknown");
   const cancelStreamRef = useRef<(() => void) | undefined>();
+  const historyLoadedForUserRef = useRef<string | null>(null);
+
+  const loadConversationHistory = async (accessToken: string) => {
+    const apiBase = getApiBase();
+    const res = await fetch(`${apiBase}/conversations`, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        accept: "application/json",
+      },
+    });
+    if (!res.ok) {
+      const body = await res.text().catch(() => res.statusText);
+      throw new Error(`Failed to load conversations ${res.status}: ${body}`);
+    }
+
+    const data = await res.json() as { conversations?: ConversationSummaryResponse[] };
+    const summaries = data.conversations ?? [];
+    if (summaries.length === 0) {
+      setConversations([emptyConversation()]);
+      setActiveId(INITIAL_CONVERSATION_ID);
+      return;
+    }
+
+    const loaded = await Promise.all(
+      summaries.map(async (summary) => {
+        const messagesRes = await fetch(`${apiBase}/conversations/${summary.id}/messages`, {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            accept: "application/json",
+          },
+        });
+        if (!messagesRes.ok) {
+          throw new Error(`Failed to load conversation ${summary.id}: ${messagesRes.status}`);
+        }
+        const messagesData = await messagesRes.json() as { messages?: ConversationMessageResponse[] };
+        const messages = (messagesData.messages ?? []).map((message, index): Message => ({
+          id: `${summary.id}-${index}`,
+          role: message.role === "assistant" ? "ai" : message.role,
+          content: message.content,
+          timestamp: message.created_at ? new Date(message.created_at) : new Date(summary.updated_at ?? Date.now()),
+        }));
+
+        return {
+          id: summary.id,
+          backendId: summary.id,
+          title: summary.title || "New conversation",
+          timestamp: new Date(summary.updated_at ?? summary.created_at ?? Date.now()),
+          messages,
+        };
+      }),
+    );
+
+    setConversations(loaded);
+    setActiveId(loaded[0].id);
+  };
 
   const refreshCurrentUserAccess = async (token?: string) => {
     const accessToken = token ?? (await supabase.auth.getSession()).data.session?.access_token;
@@ -2153,8 +2225,20 @@ export default function App() {
       setUser(u);
       if (session?.access_token) {
         await refreshCurrentUserAccess(session.access_token);
+        if (u?.id && historyLoadedForUserRef.current !== u.id) {
+          await loadConversationHistory(session.access_token).then(() => {
+            historyLoadedForUserRef.current = u.id;
+          }).catch((err) => {
+            console.error(err);
+            setConversations([emptyConversation()]);
+            setActiveId(INITIAL_CONVERSATION_ID);
+          });
+        }
       } else {
         setAccess(null);
+        historyLoadedForUserRef.current = null;
+        setConversations([emptyConversation()]);
+        setActiveId(INITIAL_CONVERSATION_ID);
       }
       setAuthLoading(false);
     });
