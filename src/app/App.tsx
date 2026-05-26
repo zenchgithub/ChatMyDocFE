@@ -1604,12 +1604,12 @@ function GuidePreview({ type }: { type: "signin" | "chat" | "source" | "upload" 
     return (
       <div className="rounded-xl border border-border bg-background p-4 flex flex-col gap-4 pointer-events-none select-none">
         <div className="ml-auto max-w-[75%] rounded-2xl rounded-br-md bg-primary text-white px-4 py-3 text-xs">
-          What does Pontiac.pdf say about MISAEL LUGO?
+          Who is the attorney for Zelalem?
         </div>
         <div className="max-w-[82%] rounded-2xl rounded-bl-md border border-border bg-card p-3 text-xs text-foreground">
-          <p>MISAEL LUGO appears in Pontiac.pdf on page 2 with the listed row details.</p>
+          <p>The document lists the attorney connected to Zelalem and cites the source page.</p>
           <div className="flex flex-wrap gap-1.5 mt-3">
-            <span className="px-2 py-1 rounded-lg border border-accent/30 bg-accent/5 text-accent">Pontiac.pdf p.2</span>
+            <span className="px-2 py-1 rounded-lg border border-accent/30 bg-accent/5 text-accent">I-485.pdf p.1</span>
           </div>
         </div>
         <div className="h-12 rounded-2xl border border-border bg-input-background px-4 flex items-center justify-between text-xs text-muted-foreground">
@@ -1630,13 +1630,13 @@ function GuidePreview({ type }: { type: "signin" | "chat" | "source" | "upload" 
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-xs font-semibold text-foreground truncate">Pontiac.pdf</p>
-              <p className="text-[11px] text-muted-foreground">Page 2</p>
+              <p className="text-[11px] text-muted-foreground">Page 1</p>
             </div>
           </div>
           <button disabled className="w-full h-9 rounded-lg bg-primary text-white text-xs font-semibold mb-4">Open document</button>
           <p className="text-[10px] font-bold text-muted-foreground uppercase mb-2">Relevant text from document</p>
           <blockquote className="text-xs text-foreground border-l-2 border-accent pl-3 leading-relaxed">
-            MISAEL LUGO 9182 A A 12-Mar...
+            Attorney of record listed for Zelalem...
           </blockquote>
         </div>
       </div>
@@ -1691,7 +1691,146 @@ function GuidePreview({ type }: { type: "signin" | "chat" | "source" | "upload" 
   );
 }
 
-function UserGuideView({ onBack }: { onBack: () => void }) {
+function ArchitectureDiagram() {
+  const nodes = [
+    { icon: Globe, title: "Vercel", detail: "React frontend" },
+    { icon: ShieldCheck, title: "Supabase", detail: "Auth and admin role" },
+    { icon: Server, title: "Render API", detail: "FastAPI backend" },
+    { icon: Database, title: "Qdrant", detail: "Vector search on NAS" },
+    { icon: FileText, title: "NAS files", detail: "PDF storage" },
+  ];
+
+  return (
+    <div className="rounded-2xl border border-border bg-background p-4">
+      <div className="grid gap-3 md:grid-cols-5">
+        {nodes.map((node, index) => {
+          const Icon = node.icon;
+          return (
+            <div key={node.title} className="relative rounded-xl border border-border bg-card p-3 min-h-[106px]">
+              {index > 0 && (
+                <div className="hidden md:block absolute top-1/2 -left-3 w-3 border-t border-dashed border-primary/50" />
+              )}
+              <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center mb-3">
+                <Icon size={16} className="text-primary" />
+              </div>
+              <p className="text-xs font-semibold text-foreground">{node.title}</p>
+              <p className="text-[11px] text-muted-foreground mt-1 leading-relaxed">{node.detail}</p>
+            </div>
+          );
+        })}
+      </div>
+      <div className="mt-4 grid gap-2 text-xs text-muted-foreground md:grid-cols-3">
+        <p className="rounded-lg bg-muted/60 p-2">Frontend sends Supabase JWTs to the backend.</p>
+        <p className="rounded-lg bg-muted/60 p-2">Backend queries Qdrant and signs document access through `/documents`.</p>
+        <p className="rounded-lg bg-muted/60 p-2">NAS credentials stay server-side and are never exposed to users.</p>
+      </div>
+    </div>
+  );
+}
+
+function AdminDocumentation() {
+  const componentDocs = [
+    ["App", "Owns auth state, current view, conversations, uploads, indexed documents, and API status."],
+    ["AuthScreen", "Handles sign in, invite acceptance, password reset, and Supabase auth errors."],
+    ["SetPasswordView", "Lets invited users create a password after opening a valid invitation link."],
+    ["TopNav", "Shows app identity, API status, settings access, mobile menu, and sign-out controls."],
+    ["Sidebar", "Lists conversations and exposes New chat plus User guide navigation."],
+    ["ChatArea", "Renders the active conversation and passes citation clicks into the source panel."],
+    ["MessageBubble", "Displays user/AI messages, citations, copy, share, and text-to-speech actions."],
+    ["ChatInput", "Sends questions, uploads PDFs, clears the active chat, and blocks duplicate streaming sends."],
+    ["SourcePanel", "Shows source document name, page, supporting text, and authenticated document open action."],
+    ["SettingsView", "Shows environment configuration, indexed documents, API notes, and admin-only invite tools."],
+    ["AdminPanel", "Allows admins to send and revoke invites through backend-protected endpoints."],
+    ["UserGuideView", "Provides user-facing guidance and this admin-only technical documentation section."],
+  ];
+
+  const backendDocs = [
+    ["/me", "Returns the current user role and `is_admin` flag from Supabase-backed backend authorization."],
+    ["/query", "Runs retrieval against Qdrant and returns a JSON answer with source metadata."],
+    ["/query-stream", "Streams answer tokens and sends source metadata for live chat responses."],
+    ["/upload-document", "Accepts PDFs, stores them for the knowledge base, chunks text, embeds, and indexes in Qdrant."],
+    ["/indexed-documents", "Lists indexed files, page counts, chunks, and authenticated document links."],
+    ["/documents", "Proxies NAS PDF access through backend auth so app users do not need NAS credentials."],
+    ["/admin/invite", "Admin-only invite endpoint using Supabase service role on the backend."],
+    ["/admin/invites", "Admin-only list of pending/recent invitations."],
+  ];
+
+  return (
+    <section className="rounded-2xl border border-border bg-card p-5 space-y-5">
+      <div className="flex items-start gap-3">
+        <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
+          <ShieldCheck size={18} className="text-primary" />
+        </div>
+        <div>
+          <h2 className="text-base font-semibold text-foreground">Admin End-to-End Documentation</h2>
+          <p className="text-sm text-muted-foreground mt-1 leading-relaxed">
+            This section is visible only to admins. It documents the app architecture, frontend components, backend services,
+            security boundaries, and deployment configuration.
+          </p>
+        </div>
+      </div>
+
+      <div>
+        <h3 className="text-sm font-semibold text-foreground mb-3">Architecture Design</h3>
+        <ArchitectureDiagram />
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        <div>
+          <h3 className="text-sm font-semibold text-foreground mb-3">Frontend Components</h3>
+          <div className="space-y-2">
+            {componentDocs.map(([name, detail]) => (
+              <div key={name} className="rounded-xl border border-border bg-background p-3">
+                <p className="text-xs font-semibold text-foreground">{name}</p>
+                <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{detail}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <h3 className="text-sm font-semibold text-foreground mb-3">Backend Responsibilities</h3>
+          <div className="space-y-2">
+            {backendDocs.map(([name, detail]) => (
+              <div key={name} className="rounded-xl border border-border bg-background p-3">
+                <code className="text-xs font-semibold text-foreground" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                  {name}
+                </code>
+                <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{detail}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-3">
+        <div className="rounded-xl border border-border bg-background p-4">
+          <h3 className="text-sm font-semibold text-foreground">Auth Model</h3>
+          <p className="text-xs text-muted-foreground mt-2 leading-relaxed">
+            Supabase handles sign-in and JWTs. The backend validates JWTs, checks admin membership, and protects all document,
+            query, upload, and invite operations.
+          </p>
+        </div>
+        <div className="rounded-xl border border-border bg-background p-4">
+          <h3 className="text-sm font-semibold text-foreground">Data Flow</h3>
+          <p className="text-xs text-muted-foreground mt-2 leading-relaxed">
+            PDF text is uploaded, chunked, embedded, stored in Qdrant, and cited back to users with document names, page numbers,
+            excerpts, and authenticated document URLs.
+          </p>
+        </div>
+        <div className="rounded-xl border border-border bg-background p-4">
+          <h3 className="text-sm font-semibold text-foreground">Deployment</h3>
+          <p className="text-xs text-muted-foreground mt-2 leading-relaxed">
+            Frontend variables belong in `.env.local` locally and Vercel Environment Variables in production. Backend secrets
+            belong only in Render environment variables.
+          </p>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function UserGuideView({ onBack, isAdmin }: { onBack: () => void; isAdmin: boolean }) {
   const steps = [
     {
       title: "1. Sign in",
@@ -1789,6 +1928,8 @@ function UserGuideView({ onBack }: { onBack: () => void }) {
             <p className="rounded-xl bg-muted/60 p-3">If an invite expires, ask an admin to send a new invitation.</p>
           </div>
         </section>
+
+        {isAdmin && <AdminDocumentation />}
       </div>
     </div>
   );
@@ -2247,7 +2388,7 @@ export default function App() {
               onRefreshDocs={refreshIndexedDocs}
             />
           ) : view === "guide" ? (
-            <UserGuideView onBack={() => setView("chat")} />
+            <UserGuideView onBack={() => setView("chat")} isAdmin={isAdmin} />
           ) : (
             <>
               <ChatArea
