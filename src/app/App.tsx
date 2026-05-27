@@ -5,7 +5,7 @@ import {
   MessageSquare, Plus, Pencil, Trash2, ChevronDown,
   Send, Paperclip, X, LogOut, Settings, Menu,
   Mail, Lock, Eye, EyeOff, ArrowRight, Loader,
-  FileText, Database, Server, Globe, AlertCircle, Check,
+  FileText, Database, Server, Globe, AlertCircle, Check, LockKeyhole,
   Copy, CheckCheck, ShieldCheck, UserPlus, RefreshCw, Trash,
   ExternalLink, Search, Share2, Volume2, BookOpen,
 } from "lucide-react";
@@ -52,6 +52,8 @@ interface IndexedDocument {
   source: string;
   original_source: string;
   last_indexed: number | null;
+  isPublic?: boolean;
+  indexed_by_email?: string | null;
 }
 
 type AuthMode = "signin" | "signup" | "reset";
@@ -1380,20 +1382,130 @@ function formatIndexedDate(value: number | null): string {
   });
 }
 
+function IndexedDocumentsSection({
+  title,
+  description,
+  docs,
+  docsLoading,
+  onRefreshDocs,
+  onUpload,
+  uploadLabel,
+  isUploading,
+  showIndexedBy = false,
+  variant = "private",
+}: {
+  title: string;
+  description: string;
+  docs: IndexedDocument[];
+  docsLoading: boolean;
+  onRefreshDocs: () => void;
+  onUpload?: (file: File) => void;
+  uploadLabel?: string;
+  isUploading?: boolean;
+  showIndexedBy?: boolean;
+  variant?: "private" | "public";
+}) {
+  const SectionIcon = variant === "public" ? Globe : LockKeyhole;
+  const iconClass = variant === "public" ? "text-emerald-600" : "text-primary";
+  const iconBg = variant === "public" ? "bg-emerald-500/10" : "bg-primary/10";
+
+  return (
+    <section className="bg-card border border-border rounded-2xl overflow-hidden">
+      <div className="px-5 py-4 border-b border-border flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className={`w-8 h-8 rounded-lg ${iconBg} flex items-center justify-center flex-shrink-0`}>
+            <SectionIcon size={15} className={iconClass} />
+          </div>
+          <div>
+            <h2 className="text-sm font-semibold text-foreground">{title}</h2>
+            <p className="text-xs text-muted-foreground">
+              {description} · {docs.length} document{docs.length === 1 ? "" : "s"}
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          {onUpload && (
+            <label className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-black/5 transition-colors ${isUploading ? "opacity-50 pointer-events-none" : "cursor-pointer"}`}>
+              {isUploading ? <Loader size={12} className="animate-spin" /> : <Paperclip size={12} />}
+              {isUploading ? "Uploading..." : uploadLabel}
+              <input
+                type="file"
+                accept="application/pdf,.pdf"
+                className="hidden"
+                disabled={isUploading}
+                onChange={(e) => {
+                  const file = e.currentTarget.files?.[0];
+                  e.currentTarget.value = "";
+                  if (file) onUpload(file);
+                }}
+              />
+            </label>
+          )}
+          <button
+            onClick={onRefreshDocs}
+            disabled={docsLoading}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-black/5 disabled:opacity-50 transition-colors"
+          >
+            <RefreshCw size={12} className={docsLoading ? "animate-spin" : ""} />
+            Refresh
+          </button>
+        </div>
+      </div>
+      <div className="divide-y divide-border">
+        {docsLoading && docs.length === 0 ? (
+          <div className="px-5 py-4 text-sm text-muted-foreground">Loading indexed documents...</div>
+        ) : docs.length === 0 ? (
+          <div className="px-5 py-4 text-sm text-muted-foreground">No indexed documents found.</div>
+        ) : (
+          docs.map((doc) => (
+            <div key={doc.id} className="px-5 py-3.5 flex items-center gap-3">
+              <div className="w-9 h-9 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
+                <FileText size={15} className="text-primary" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-foreground truncate">{doc.name}</p>
+                <p className="text-xs text-muted-foreground truncate">
+                  {doc.collection} · {doc.pages} page{doc.pages === 1 ? "" : "s"} · {doc.chunks} chunk{doc.chunks === 1 ? "" : "s"} · {doc.size} · indexed {formatIndexedDate(doc.last_indexed)}
+                  {showIndexedBy && doc.indexed_by_email ? ` · indexed by ${doc.indexed_by_email}` : ""}
+                </p>
+              </div>
+              <button
+                onClick={() => openAuthenticatedDocument(doc.source).catch((err) => {
+                  console.error(err);
+                })}
+                className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-black/5 transition-colors"
+                title="Open document"
+              >
+                <ExternalLink size={14} />
+              </button>
+            </div>
+          ))
+        )}
+      </div>
+    </section>
+  );
+}
+
 function SettingsView({
   onBack,
   userEmail,
   isAdmin,
   indexedDocs,
+  publicIndexedDocs,
   docsLoading,
   onRefreshDocs,
+  onPublicUpload,
+  isPublicUploading,
 }: {
   onBack: () => void;
   userEmail: string;
   isAdmin: boolean;
   indexedDocs: IndexedDocument[];
+  publicIndexedDocs: IndexedDocument[];
   docsLoading: boolean;
   onRefreshDocs: () => void;
+  onPublicUpload: (file: File) => void;
+  isPublicUploading: boolean;
 }) {
   const frontendEnvLocation = "Set this in .env.local locally, and in Vercel Project Settings -> Environment Variables for production";
   const feVars: { key: string; value: string; note: string; configured: boolean; location: string }[] = [
@@ -1444,59 +1556,27 @@ function SettingsView({
           </div>
         </div>
 
-        <section className="bg-card border border-border rounded-2xl overflow-hidden">
-          <div className="px-5 py-4 border-b border-border flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
-                <FileText size={15} className="text-primary" />
-              </div>
-              <div>
-                <h2 className="text-sm font-semibold text-foreground">Indexed documents</h2>
-                <p className="text-xs text-muted-foreground">
-                  {indexedDocs.length} document{indexedDocs.length === 1 ? "" : "s"} in Qdrant
-                </p>
-              </div>
-            </div>
-            <button
-              onClick={onRefreshDocs}
-              disabled={docsLoading}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-black/5 disabled:opacity-50 transition-colors"
-            >
-              <RefreshCw size={12} className={docsLoading ? "animate-spin" : ""} />
-              Refresh
-            </button>
-          </div>
-          <div className="divide-y divide-border">
-            {docsLoading && indexedDocs.length === 0 ? (
-              <div className="px-5 py-4 text-sm text-muted-foreground">Loading indexed documents...</div>
-            ) : indexedDocs.length === 0 ? (
-              <div className="px-5 py-4 text-sm text-muted-foreground">No indexed documents found.</div>
-            ) : (
-              indexedDocs.map((doc) => (
-                <div key={doc.id} className="px-5 py-3.5 flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
-                    <FileText size={15} className="text-primary" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-foreground truncate">{doc.name}</p>
-                    <p className="text-xs text-muted-foreground truncate">
-                      {doc.collection} · {doc.pages} page{doc.pages === 1 ? "" : "s"} · {doc.chunks} chunk{doc.chunks === 1 ? "" : "s"} · {doc.size} · indexed {formatIndexedDate(doc.last_indexed)}
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => openAuthenticatedDocument(doc.source).catch((err) => {
-                      console.error(err);
-                    })}
-                    className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-black/5 transition-colors"
-                    title="Open document"
-                  >
-                    <ExternalLink size={14} />
-                  </button>
-                </div>
-              ))
-            )}
-          </div>
-        </section>
+        <IndexedDocumentsSection
+          title="Private indexed documents"
+          description="Private documents indexed by your account"
+          docs={indexedDocs}
+          docsLoading={docsLoading}
+          onRefreshDocs={onRefreshDocs}
+          variant="private"
+        />
+
+        <IndexedDocumentsSection
+          title="Public indexed documents"
+          description="Documents available to all signed-in users"
+          docs={publicIndexedDocs}
+          docsLoading={docsLoading}
+          onRefreshDocs={onRefreshDocs}
+          onUpload={onPublicUpload}
+          uploadLabel="Upload public PDF"
+          isUploading={isPublicUploading}
+          showIndexedBy
+          variant="public"
+        />
 
         {/* Supabase Project */}
         <section className="bg-card border border-border rounded-2xl overflow-hidden">
@@ -2126,7 +2206,9 @@ export default function App() {
   const [sourcePanel, setSourcePanel] = useState<Citation | null>(null);
   const [isStreaming, setIsStreaming] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [isPublicUploading, setIsPublicUploading] = useState(false);
   const [indexedDocs, setIndexedDocs] = useState<IndexedDocument[]>([]);
+  const [publicIndexedDocs, setPublicIndexedDocs] = useState<IndexedDocument[]>([]);
   const [docsLoading, setDocsLoading] = useState(false);
   const [apiStatus, setApiStatus] = useState<"connected" | "unknown">("unknown");
   const cancelStreamRef = useRef<(() => void) | undefined>();
@@ -2239,6 +2321,8 @@ export default function App() {
         historyLoadedForUserRef.current = null;
         setConversations([emptyConversation()]);
         setActiveId(INITIAL_CONVERSATION_ID);
+        setIndexedDocs([]);
+        setPublicIndexedDocs([]);
       }
       setAuthLoading(false);
     });
@@ -2252,21 +2336,30 @@ export default function App() {
     setDocsLoading(true);
     try {
       const apiBase = getApiBase();
-      const res = await fetch(`${apiBase}/indexed-documents?collection=nas_docs`, {
-        headers: {
-          "Authorization": `Bearer ${session.access_token}`,
-          "accept": "application/json",
-        },
-      });
-      if (!res.ok) {
-        const body = await res.text().catch(() => res.statusText);
-        throw new Error(`Failed to load indexed documents ${res.status}: ${body}`);
+      const headers = {
+        "Authorization": `Bearer ${session.access_token}`,
+        "accept": "application/json",
+      };
+      const [privateRes, publicRes] = await Promise.all([
+        fetch(`${apiBase}/indexed-documents?collection=nas_docs&visibility=private`, { headers }),
+        fetch(`${apiBase}/indexed-documents?collection=nas_docs&visibility=public`, { headers }),
+      ]);
+      if (!privateRes.ok) {
+        const body = await privateRes.text().catch(() => privateRes.statusText);
+        throw new Error(`Failed to load indexed documents ${privateRes.status}: ${body}`);
       }
-      const data = await res.json() as { documents?: IndexedDocument[] };
-      setIndexedDocs((data.documents ?? []).map((doc) => ({
+      if (!publicRes.ok) {
+        const body = await publicRes.text().catch(() => publicRes.statusText);
+        throw new Error(`Failed to load public indexed documents ${publicRes.status}: ${body}`);
+      }
+      const privateData = await privateRes.json() as { documents?: IndexedDocument[] };
+      const publicData = await publicRes.json() as { documents?: IndexedDocument[] };
+      const normalizeDoc = (doc: IndexedDocument): IndexedDocument => ({
         ...doc,
         source: doc.source.startsWith("/") ? `${apiBase}${doc.source}` : doc.source,
-      })));
+      });
+      setIndexedDocs((privateData.documents ?? []).map(normalizeDoc));
+      setPublicIndexedDocs((publicData.documents ?? []).map(normalizeDoc));
     } catch (err) {
       console.error(err);
     } finally {
@@ -2293,12 +2386,42 @@ export default function App() {
     setMobileSidebarOpen(false);
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
+    const target = conversations.find((c) => c.id === id);
+    const backendId = target?.backendId;
+
     setConversations((prev) => {
       const rest = prev.filter((c) => c.id !== id);
-      if (activeId === id && rest.length > 0) setActiveId(rest[0].id);
-      return rest;
+      const next = rest.length > 0 ? rest : [emptyConversation()];
+      if (activeId === id) setActiveId(next[0].id);
+      return next;
     });
+
+    if (!backendId) return;
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) throw new Error("Missing Supabase session");
+
+      const res = await fetch(`${getApiBase()}/conversations/${backendId}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+          accept: "application/json",
+        },
+      });
+      if (!res.ok && res.status !== 404) {
+        const body = await res.text().catch(() => res.statusText);
+        throw new Error(`Failed to delete conversation ${res.status}: ${body}`);
+      }
+    } catch (err) {
+      console.error(err);
+      if (sessionStorage.getItem("chatmydocs-delete-reload") !== backendId) {
+        sessionStorage.setItem("chatmydocs-delete-reload", backendId);
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.access_token) void loadConversationHistory(session.access_token);
+      }
+    }
   };
 
   const handleRename = (id: string, title: string) => {
@@ -2420,8 +2543,8 @@ export default function App() {
     );
   };
 
-  const handleUpload = async (file: File) => {
-    if (isUploading) return;
+  const handleUpload = async (file: File, isPublic = false) => {
+    if (isPublic ? isPublicUploading : isUploading) return;
     if (!file.name.toLowerCase().endsWith(".pdf")) {
       window.alert("Please upload a PDF document.");
       return;
@@ -2433,7 +2556,8 @@ export default function App() {
       return;
     }
 
-    setIsUploading(true);
+    if (isPublic) setIsPublicUploading(true);
+    else setIsUploading(true);
     try {
       const apiBase = getApiBase();
       const res = await fetch(`${apiBase}/upload-document`, {
@@ -2443,6 +2567,7 @@ export default function App() {
           "Content-Type": "application/pdf",
           "X-Filename": file.name,
           "X-Collection": "nas_docs",
+          "X-Is-Public": isPublic ? "true" : "false",
         },
         body: file,
       });
@@ -2454,11 +2579,17 @@ export default function App() {
 
       const result = await res.json() as { document_name?: string; collection?: string };
       await refreshIndexedDocs();
-      window.alert(`${result.document_name ?? file.name} uploaded and indexed.`);
+      const documentName = result.document_name ?? file.name;
+      window.alert(
+        isPublic
+          ? `${documentName} finished uploading and is now indexed as a public document.`
+          : `${documentName} finished uploading and is now indexed for your account.`
+      );
     } catch (err) {
       window.alert(err instanceof Error ? err.message : String(err));
     } finally {
-      setIsUploading(false);
+      if (isPublic) setIsPublicUploading(false);
+      else setIsUploading(false);
     }
   };
 
@@ -2499,8 +2630,11 @@ export default function App() {
               userEmail={user.email ?? ""}
               isAdmin={isAdmin}
               indexedDocs={indexedDocs}
+              publicIndexedDocs={publicIndexedDocs}
               docsLoading={docsLoading}
               onRefreshDocs={refreshIndexedDocs}
+              onPublicUpload={(file) => void handleUpload(file, true)}
+              isPublicUploading={isPublicUploading}
             />
           ) : view === "guide" ? (
             <UserGuideView onBack={() => setView("chat")} isAdmin={isAdmin} />
@@ -2512,7 +2646,7 @@ export default function App() {
               />
               <ChatInput
                 onSend={handleSend}
-                onUpload={handleUpload}
+                onUpload={(file) => void handleUpload(file, false)}
                 isStreaming={isStreaming}
                 isUploading={isUploading}
                 onClear={handleClear}
