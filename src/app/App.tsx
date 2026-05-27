@@ -77,6 +77,13 @@ interface ConversationMessageResponse {
   created_at: string | null;
 }
 
+interface AppNotice {
+  id: number;
+  type: "success" | "error";
+  title: string;
+  message: string;
+}
+
 const INITIAL_CONVERSATION_ID = "conv-initial";
 
 function emptyConversation(): Conversation {
@@ -2225,8 +2232,17 @@ export default function App() {
   const [oldIndexedDocs, setOldIndexedDocs] = useState<IndexedDocument[]>([]);
   const [docsLoading, setDocsLoading] = useState(false);
   const [apiStatus, setApiStatus] = useState<"connected" | "unknown">("unknown");
+  const [notice, setNotice] = useState<AppNotice | null>(null);
   const cancelStreamRef = useRef<(() => void) | undefined>();
   const historyLoadedForUserRef = useRef<string | null>(null);
+
+  const showNotice = (type: AppNotice["type"], title: string, message: string) => {
+    const id = Date.now();
+    setNotice({ id, type, title, message });
+    window.setTimeout(() => {
+      setNotice((current) => (current?.id === id ? null : current));
+    }, 6000);
+  };
 
   const loadConversationHistory = async (accessToken: string) => {
     const apiBase = getApiBase();
@@ -2568,13 +2584,13 @@ export default function App() {
   const handleUpload = async (file: File, isPublic = false) => {
     if (isPublic ? isPublicUploading : isUploading) return;
     if (!file.name.toLowerCase().endsWith(".pdf")) {
-      window.alert("Please upload a PDF document.");
+      showNotice("error", "Upload failed", "Please choose a PDF document.");
       return;
     }
 
     const { data: { session } } = await supabase.auth.getSession();
     if (!session?.access_token) {
-      window.alert("Please sign in again before uploading.");
+      showNotice("error", "Session expired", "Please sign in again before uploading.");
       return;
     }
 
@@ -2602,13 +2618,15 @@ export default function App() {
       const result = await res.json() as { document_name?: string; collection?: string };
       await refreshIndexedDocs();
       const documentName = result.document_name ?? file.name;
-      window.alert(
+      showNotice(
+        "success",
+        "Document indexed",
         isPublic
           ? `${documentName} finished uploading and is now indexed as a public document.`
           : `${documentName} finished uploading and is now indexed for your account.`
       );
     } catch (err) {
-      window.alert(err instanceof Error ? err.message : String(err));
+      showNotice("error", "Upload failed", err instanceof Error ? err.message : String(err));
     } finally {
       if (isPublic) setIsPublicUploading(false);
       else setIsUploading(false);
@@ -2630,6 +2648,33 @@ export default function App() {
         onMenuToggle={() => setMobileSidebarOpen((o) => !o)}
         apiStatus={apiStatus}
       />
+
+      {notice && (
+        <div className="fixed top-4 right-4 z-50 w-[min(420px,calc(100vw-2rem))]">
+          <div className={`rounded-2xl border shadow-xl px-4 py-3 flex items-start gap-3 ${
+            notice.type === "success"
+              ? "bg-emerald-50 border-emerald-200 text-emerald-950"
+              : "bg-red-50 border-red-200 text-red-950"
+          }`}>
+            <div className={`mt-0.5 w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 ${
+              notice.type === "success" ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"
+            }`}>
+              {notice.type === "success" ? <Check size={15} /> : <AlertCircle size={15} />}
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold">{notice.title}</p>
+              <p className="text-sm opacity-80 mt-0.5 break-words">{notice.message}</p>
+            </div>
+            <button
+              onClick={() => setNotice(null)}
+              className="p-1 rounded-lg opacity-70 hover:opacity-100 hover:bg-black/5 transition-colors"
+              aria-label="Dismiss notification"
+            >
+              <X size={14} />
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="flex flex-1 overflow-hidden">
         <Sidebar
