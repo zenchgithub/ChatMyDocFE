@@ -7,7 +7,7 @@ import {
   Mail, Lock, Eye, EyeOff, ArrowRight, Loader,
   FileText, Database, Server, Globe, AlertCircle, Check, LockKeyhole,
   Copy, CheckCheck, ShieldCheck, UserPlus, RefreshCw, Trash,
-  ExternalLink, Search, Share2, Volume2, BookOpen,
+  ExternalLink, Search, Share2, Volume2, BookOpen, Archive,
 } from "lucide-react";
 import { supabase } from "../utils/supabase";
 import { getApiBase, streamQuery } from "../utils/streamQuery";
@@ -53,6 +53,7 @@ interface IndexedDocument {
   original_source: string;
   last_indexed: number | null;
   isPublic?: boolean;
+  isLegacy?: boolean;
   indexed_by_email?: string | null;
 }
 
@@ -1403,11 +1404,11 @@ function IndexedDocumentsSection({
   uploadLabel?: string;
   isUploading?: boolean;
   showIndexedBy?: boolean;
-  variant?: "private" | "public";
+  variant?: "private" | "public" | "old";
 }) {
-  const SectionIcon = variant === "public" ? Globe : LockKeyhole;
-  const iconClass = variant === "public" ? "text-emerald-600" : "text-primary";
-  const iconBg = variant === "public" ? "bg-emerald-500/10" : "bg-primary/10";
+  const SectionIcon = variant === "public" ? Globe : variant === "old" ? Archive : LockKeyhole;
+  const iconClass = variant === "public" ? "text-emerald-600" : variant === "old" ? "text-amber-600" : "text-primary";
+  const iconBg = variant === "public" ? "bg-emerald-500/10" : variant === "old" ? "bg-amber-500/10" : "bg-primary/10";
 
   return (
     <section className="bg-card border border-border rounded-2xl overflow-hidden">
@@ -1492,6 +1493,7 @@ function SettingsView({
   isAdmin,
   indexedDocs,
   publicIndexedDocs,
+  oldIndexedDocs,
   docsLoading,
   onRefreshDocs,
   onPublicUpload,
@@ -1502,6 +1504,7 @@ function SettingsView({
   isAdmin: boolean;
   indexedDocs: IndexedDocument[];
   publicIndexedDocs: IndexedDocument[];
+  oldIndexedDocs: IndexedDocument[];
   docsLoading: boolean;
   onRefreshDocs: () => void;
   onPublicUpload: (file: File) => void;
@@ -1576,6 +1579,16 @@ function SettingsView({
           isUploading={isPublicUploading}
           showIndexedBy
           variant="public"
+        />
+
+        <IndexedDocumentsSection
+          title="Old indexed documents"
+          description="Legacy documents without user ownership, treated as public"
+          docs={oldIndexedDocs}
+          docsLoading={docsLoading}
+          onRefreshDocs={onRefreshDocs}
+          showIndexedBy
+          variant="old"
         />
 
         {/* Supabase Project */}
@@ -2209,6 +2222,7 @@ export default function App() {
   const [isPublicUploading, setIsPublicUploading] = useState(false);
   const [indexedDocs, setIndexedDocs] = useState<IndexedDocument[]>([]);
   const [publicIndexedDocs, setPublicIndexedDocs] = useState<IndexedDocument[]>([]);
+  const [oldIndexedDocs, setOldIndexedDocs] = useState<IndexedDocument[]>([]);
   const [docsLoading, setDocsLoading] = useState(false);
   const [apiStatus, setApiStatus] = useState<"connected" | "unknown">("unknown");
   const cancelStreamRef = useRef<(() => void) | undefined>();
@@ -2323,6 +2337,7 @@ export default function App() {
         setActiveId(INITIAL_CONVERSATION_ID);
         setIndexedDocs([]);
         setPublicIndexedDocs([]);
+        setOldIndexedDocs([]);
       }
       setAuthLoading(false);
     });
@@ -2340,9 +2355,10 @@ export default function App() {
         "Authorization": `Bearer ${session.access_token}`,
         "accept": "application/json",
       };
-      const [privateRes, publicRes] = await Promise.all([
+      const [privateRes, publicRes, oldRes] = await Promise.all([
         fetch(`${apiBase}/indexed-documents?collection=nas_docs&visibility=private`, { headers }),
         fetch(`${apiBase}/indexed-documents?collection=nas_docs&visibility=public`, { headers }),
+        fetch(`${apiBase}/indexed-documents?collection=nas_docs&visibility=old`, { headers }),
       ]);
       if (!privateRes.ok) {
         const body = await privateRes.text().catch(() => privateRes.statusText);
@@ -2352,14 +2368,20 @@ export default function App() {
         const body = await publicRes.text().catch(() => publicRes.statusText);
         throw new Error(`Failed to load public indexed documents ${publicRes.status}: ${body}`);
       }
+      if (!oldRes.ok) {
+        const body = await oldRes.text().catch(() => oldRes.statusText);
+        throw new Error(`Failed to load old indexed documents ${oldRes.status}: ${body}`);
+      }
       const privateData = await privateRes.json() as { documents?: IndexedDocument[] };
       const publicData = await publicRes.json() as { documents?: IndexedDocument[] };
+      const oldData = await oldRes.json() as { documents?: IndexedDocument[] };
       const normalizeDoc = (doc: IndexedDocument): IndexedDocument => ({
         ...doc,
         source: doc.source.startsWith("/") ? `${apiBase}${doc.source}` : doc.source,
       });
       setIndexedDocs((privateData.documents ?? []).map(normalizeDoc));
       setPublicIndexedDocs((publicData.documents ?? []).map(normalizeDoc));
+      setOldIndexedDocs((oldData.documents ?? []).map(normalizeDoc));
     } catch (err) {
       console.error(err);
     } finally {
@@ -2631,6 +2653,7 @@ export default function App() {
               isAdmin={isAdmin}
               indexedDocs={indexedDocs}
               publicIndexedDocs={publicIndexedDocs}
+              oldIndexedDocs={oldIndexedDocs}
               docsLoading={docsLoading}
               onRefreshDocs={refreshIndexedDocs}
               onPublicUpload={(file) => void handleUpload(file, true)}
