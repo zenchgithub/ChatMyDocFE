@@ -2336,9 +2336,10 @@ export default function App() {
       const u = session?.user ?? null;
       setUser(u);
       if (session?.access_token) {
-        await refreshCurrentUserAccess(session.access_token);
+        setAuthLoading(false);
+        void refreshCurrentUserAccess(session.access_token);
         if (u?.id && historyLoadedForUserRef.current !== u.id) {
-          await loadConversationHistory(session.access_token).then(() => {
+          void loadConversationHistory(session.access_token).then(() => {
             historyLoadedForUserRef.current = u.id;
           }).catch((err) => {
             console.error(err);
@@ -2354,8 +2355,8 @@ export default function App() {
         setIndexedDocs([]);
         setPublicIndexedDocs([]);
         setOldIndexedDocs([]);
+        setAuthLoading(false);
       }
-      setAuthLoading(false);
     });
     return () => subscription.unsubscribe();
   }, []);
@@ -2615,15 +2616,18 @@ export default function App() {
         throw new Error(`Upload failed ${res.status}: ${body}`);
       }
 
-      const result = await res.json() as { document_name?: string; collection?: string };
+      const result = await res.json() as { document_name?: string; collection?: string; chunks_indexed?: number };
       await refreshIndexedDocs();
       const documentName = result.document_name ?? file.name;
+      const chunkText = result.chunks_indexed
+        ? ` ${result.chunks_indexed} searchable chunk${result.chunks_indexed === 1 ? "" : "s"} were added to Qdrant.`
+        : "";
       showNotice(
         "success",
         "Document indexed",
         isPublic
-          ? `${documentName} finished uploading and is now indexed as a public document.`
-          : `${documentName} finished uploading and is now indexed for your account.`
+          ? `${documentName} finished uploading and is now indexed as a public document.${chunkText}`
+          : `${documentName} finished uploading and is now indexed for your account.${chunkText}`
       );
     } catch (err) {
       showNotice("error", "Upload failed", err instanceof Error ? err.message : String(err));
@@ -2635,7 +2639,16 @@ export default function App() {
 
   const handleSignOut = () => supabase.auth.signOut();
 
-  if (authLoading) return <div className="h-screen bg-background" />;
+  if (authLoading) {
+    return (
+      <div className="h-screen bg-background text-foreground flex items-center justify-center">
+        <div className="flex items-center gap-3 text-sm text-muted-foreground">
+          <Loader size={16} className="animate-spin text-primary" />
+          Loading ChatMyDocs.ai...
+        </div>
+      </div>
+    );
+  }
   if (!user) return <AuthScreen />;
   if (needsPasswordSetup) return <SetPasswordView onComplete={() => setNeedsPasswordSetup(false)} />;
 
