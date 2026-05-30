@@ -1503,6 +1503,25 @@ type QdrantCollectionStatus = {
   optimizer_status?: string | null;
 };
 
+type ModelConfig = {
+  planner_model: string;
+  rerank_model: string;
+  answer_model: string;
+  embedding_model: string;
+  embedding_dimensions: number;
+};
+
+type ModelConfigResponse = {
+  config: ModelConfig;
+  defaults: ModelConfig;
+  steps: Record<string, { label: string; description: string }>;
+  options: {
+    chat: string[];
+    embedding: string[];
+  };
+  storage_path?: string;
+};
+
 function AdminQdrantPanel({ onRefreshDocs }: { onRefreshDocs: () => void }) {
   const [collection, setCollection] = useState("nas_docs");
   const [source, setSource] = useState("");
@@ -1730,6 +1749,192 @@ function AdminQdrantPanel({ onRefreshDocs }: { onRefreshDocs: () => void }) {
   );
 }
 
+function AdminModelConfigPanel() {
+  const [data, setData] = useState<ModelConfigResponse | null>(null);
+  const [config, setConfig] = useState<ModelConfig | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const getToken = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    return session?.access_token ?? "";
+  };
+
+  const loadConfig = async () => {
+    setBusy(true);
+    setNotice(null);
+    setError(null);
+    try {
+      const token = await getToken();
+      const response = await callEdgeFn("/admin/model-config", "GET", token) as ModelConfigResponse;
+      setData(response);
+      setConfig(response.config);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to load model settings.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  useEffect(() => { loadConfig(); }, []);
+
+  const updateField = (key: keyof ModelConfig, value: string | number) => {
+    setConfig((prev) => prev ? { ...prev, [key]: value } : prev);
+  };
+
+  const saveConfig = async () => {
+    if (!config) return;
+    setBusy(true);
+    setNotice(null);
+    setError(null);
+    try {
+      const token = await getToken();
+      const response = await callEdgeFn("/admin/model-config", "PUT", token, config) as ModelConfigResponse;
+      setData(response);
+      setConfig(response.config);
+      setNotice("Model settings saved. New requests will use these models.");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to save model settings.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const resetDefaults = () => {
+    if (data?.defaults) {
+      setConfig(data.defaults);
+      setNotice("Defaults loaded. Click Save model settings to apply them.");
+      setError(null);
+    }
+  };
+
+  const renderChatSelect = (key: "planner_model" | "rerank_model" | "answer_model") => {
+    if (!config || !data) return null;
+    const step = data.steps[key];
+    return (
+      <div className="rounded-xl border border-border p-3 space-y-2">
+        <div>
+          <label className="text-xs font-semibold text-foreground">{step?.label ?? key}</label>
+          <p className="text-[11px] text-muted-foreground mt-0.5">{step?.description}</p>
+        </div>
+        <select
+          value={config[key]}
+          onChange={(e) => updateField(key, e.target.value)}
+          className="w-full px-3 py-2 text-sm bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent transition-all"
+        >
+          {data.options.chat.map((model) => (
+            <option key={model} value={model}>{model}</option>
+          ))}
+        </select>
+      </div>
+    );
+  };
+
+  return (
+    <section className="bg-card border border-border rounded-2xl overflow-hidden">
+      <div className="px-5 py-4 border-b border-border flex items-start gap-3">
+        <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+          <Server size={15} className="text-primary" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <h2 className="text-sm font-semibold text-foreground">Admin — AI Model Pipeline</h2>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Choose models for each RAG step. Defaults use the stronger production setup.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={loadConfig}
+          disabled={busy}
+          className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-black/5 disabled:opacity-50 transition-colors"
+          title="Reload model settings"
+        >
+          <RefreshCw size={14} className={busy ? "animate-spin" : ""} />
+        </button>
+      </div>
+
+      <div className="px-5 py-4 space-y-4">
+        {(notice || error) && (
+          <div className={`rounded-xl border px-3 py-2 text-xs flex items-start gap-2 ${error ? "border-red-500/30 bg-red-50 text-red-700" : "border-emerald-500/30 bg-emerald-50 text-emerald-700"}`}>
+            {error ? <AlertCircle size={13} className="mt-0.5 flex-shrink-0" /> : <Check size={13} className="mt-0.5 flex-shrink-0" />}
+            <span>{error ?? notice}</span>
+          </div>
+        )}
+
+        {!config || !data ? (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Loader size={14} className="animate-spin" /> Loading model settings...
+          </div>
+        ) : (
+          <>
+            <div className="grid gap-3">
+              {renderChatSelect("planner_model")}
+              {renderChatSelect("rerank_model")}
+              {renderChatSelect("answer_model")}
+
+              <div className="rounded-xl border border-border p-3 space-y-2">
+                <div>
+                  <label className="text-xs font-semibold text-foreground">{data.steps.embedding_model?.label ?? "Embeddings"}</label>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">{data.steps.embedding_model?.description}</p>
+                </div>
+                <div className="grid gap-2 sm:grid-cols-[1fr_140px]">
+                  <select
+                    value={config.embedding_model}
+                    onChange={(e) => updateField("embedding_model", e.target.value)}
+                    className="w-full px-3 py-2 text-sm bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent transition-all"
+                  >
+                    {data.options.embedding.map((model) => (
+                      <option key={model} value={model}>{model}</option>
+                    ))}
+                  </select>
+                  <input
+                    type="number"
+                    min={1}
+                    value={config.embedding_dimensions}
+                    readOnly
+                    className="w-full px-3 py-2 text-sm bg-muted border border-border rounded-lg text-muted-foreground focus:outline-none transition-all"
+                    title="Embedding vector dimensions"
+                  />
+                </div>
+                <p className="text-[11px] text-amber-600">
+                  Keep dimensions at 1536 unless you recreate the Qdrant collection with a different vector size.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={saveConfig}
+                disabled={busy}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:opacity-90 disabled:opacity-50 transition-colors"
+              >
+                {busy ? <Loader size={12} className="animate-spin" /> : <Check size={12} />}
+                Save model settings
+              </button>
+              <button
+                type="button"
+                onClick={resetDefaults}
+                disabled={busy}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-border text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-black/5 disabled:opacity-50 transition-colors"
+              >
+                Use production defaults
+              </button>
+            </div>
+
+            {data.storage_path && (
+              <p className="text-[11px] text-muted-foreground">
+                Stored on backend at <code className="font-mono">{data.storage_path}</code>.
+              </p>
+            )}
+          </>
+        )}
+      </div>
+    </section>
+  );
+}
+
 function SettingsView({
   onBack,
   userEmail,
@@ -1833,6 +2038,8 @@ function SettingsView({
           showIndexedBy
           variant="old"
         />
+
+        {isAdmin && <AdminModelConfigPanel />}
 
         {isAdmin && <AdminQdrantPanel onRefreshDocs={onRefreshDocs} />}
 
@@ -2331,7 +2538,7 @@ function UserGuideView({ onBack, isAdmin }: { onBack: () => void; isAdmin: boole
 
 async function callEdgeFn(
   path: string,
-  method: "GET" | "POST" | "DELETE",
+  method: "GET" | "POST" | "PUT" | "DELETE",
   token: string,
   body?: unknown,
 ) {
