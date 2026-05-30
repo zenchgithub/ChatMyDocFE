@@ -1494,6 +1494,242 @@ function IndexedDocumentsSection({
   );
 }
 
+type QdrantCollectionStatus = {
+  status: string;
+  collection: string;
+  points_count?: number | null;
+  indexed_vectors_count?: number | null;
+  segments_count?: number | null;
+  optimizer_status?: string | null;
+};
+
+function AdminQdrantPanel({ onRefreshDocs }: { onRefreshDocs: () => void }) {
+  const [collection, setCollection] = useState("nas_docs");
+  const [source, setSource] = useState("");
+  const [sourceConfirm, setSourceConfirm] = useState("");
+  const [collectionConfirm, setCollectionConfirm] = useState("");
+  const [collectionStatus, setCollectionStatus] = useState<QdrantCollectionStatus | null>(null);
+  const [busy, setBusy] = useState<"status" | "reindex" | "source" | "collection" | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const getToken = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    return session?.access_token ?? "";
+  };
+
+  const cleanCollection = collection.trim() || "nas_docs";
+
+  const runAdminAction = async <T,>(action: () => Promise<T>): Promise<T | null> => {
+    setNotice(null);
+    setError(null);
+    try {
+      return await action();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Admin request failed.");
+      return null;
+    }
+  };
+
+  const refreshStatus = async () => {
+    setBusy("status");
+    const data = await runAdminAction(async () => {
+      const token = await getToken();
+      return callEdgeFn(`/admin/qdrant/collections/${encodeURIComponent(cleanCollection)}`, "GET", token);
+    });
+    if (data) {
+      setCollectionStatus(data as QdrantCollectionStatus);
+      setNotice(`Loaded ${cleanCollection} status.`);
+    }
+    setBusy(null);
+  };
+
+  const reindexCollection = async () => {
+    setBusy("reindex");
+    const data = await runAdminAction(async () => {
+      const token = await getToken();
+      return callEdgeFn("/admin/qdrant/reindex", "POST", token, { collection: cleanCollection });
+    });
+    if (data) {
+      setNotice(`Reindex finished for ${cleanCollection}.`);
+      onRefreshDocs();
+      refreshStatus();
+    } else {
+      setBusy(null);
+    }
+  };
+
+  const deleteSource = async () => {
+    const cleanSource = source.trim();
+    if (!cleanSource) {
+      setError("Enter the exact Qdrant source value to delete.");
+      return;
+    }
+    setBusy("source");
+    const data = await runAdminAction(async () => {
+      const token = await getToken();
+      return callEdgeFn("/admin/qdrant/delete-source", "POST", token, {
+        collection: cleanCollection,
+        source: cleanSource,
+        confirm: sourceConfirm,
+      });
+    });
+    if (data) {
+      setNotice(`Deleted points with source ${cleanSource}.`);
+      setSource("");
+      setSourceConfirm("");
+      onRefreshDocs();
+      refreshStatus();
+    } else {
+      setBusy(null);
+    }
+  };
+
+  const deleteCollection = async () => {
+    setBusy("collection");
+    const data = await runAdminAction(async () => {
+      const token = await getToken();
+      return callEdgeFn("/admin/qdrant/delete-collection", "POST", token, {
+        collection: cleanCollection,
+        confirm: collectionConfirm,
+      });
+    });
+    if (data) {
+      setNotice(`Deleted Qdrant collection ${cleanCollection}. Reindex to recreate it.`);
+      setCollectionStatus(null);
+      setCollectionConfirm("");
+      onRefreshDocs();
+    }
+    setBusy(null);
+  };
+
+  return (
+    <section className="bg-card border border-border rounded-2xl overflow-hidden">
+      <div className="px-5 py-4 border-b border-border flex items-start gap-3">
+        <div className="w-8 h-8 rounded-lg bg-red-500/10 flex items-center justify-center flex-shrink-0">
+          <Database size={15} className="text-red-600" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <h2 className="text-sm font-semibold text-foreground">Admin — Qdrant Maintenance</h2>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Clean or reindex vector data through the backend. Qdrant keys stay server-side.
+          </p>
+        </div>
+      </div>
+
+      <div className="px-5 py-4 space-y-4">
+        {(notice || error) && (
+          <div className={`rounded-xl border px-3 py-2 text-xs flex items-start gap-2 ${error ? "border-red-500/30 bg-red-50 text-red-700" : "border-emerald-500/30 bg-emerald-50 text-emerald-700"}`}>
+            {error ? <AlertCircle size={13} className="mt-0.5 flex-shrink-0" /> : <Check size={13} className="mt-0.5 flex-shrink-0" />}
+            <span>{error ?? notice}</span>
+          </div>
+        )}
+
+        <div className="grid gap-3 sm:grid-cols-[1fr_auto_auto]">
+          <div>
+            <label className="text-[11px] font-semibold tracking-wider uppercase text-muted-foreground">
+              Collection
+            </label>
+            <input
+              value={collection}
+              onChange={(e) => setCollection(e.target.value)}
+              className="mt-1 w-full px-3 py-2 text-sm bg-background border border-border rounded-lg text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent transition-all"
+            />
+          </div>
+          <button
+            type="button"
+            onClick={refreshStatus}
+            disabled={busy !== null}
+            className="self-end flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg border border-border text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-black/5 disabled:opacity-50 transition-colors"
+          >
+            <RefreshCw size={12} className={busy === "status" ? "animate-spin" : ""} />
+            Status
+          </button>
+          <button
+            type="button"
+            onClick={reindexCollection}
+            disabled={busy !== null}
+            className="self-end flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:opacity-90 disabled:opacity-50 transition-colors"
+          >
+            {busy === "reindex" ? <Loader size={12} className="animate-spin" /> : <RefreshCw size={12} />}
+            Reindex NAS PDFs
+          </button>
+        </div>
+
+        {collectionStatus && (
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            {[
+              ["Points", collectionStatus.points_count ?? 0],
+              ["Indexed vectors", collectionStatus.indexed_vectors_count ?? 0],
+              ["Segments", collectionStatus.segments_count ?? 0],
+              ["Optimizer", collectionStatus.optimizer_status || "Unknown"],
+            ].map(([label, value]) => (
+              <div key={label} className="rounded-xl bg-muted/60 px-3 py-2">
+                <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">{label}</p>
+                <p className="mt-1 text-sm font-semibold text-foreground truncate">{String(value)}</p>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="rounded-xl border border-border p-3 space-y-3">
+          <div>
+            <h3 className="text-xs font-semibold text-foreground">Delete one document source</h3>
+            <p className="text-[11px] text-muted-foreground mt-0.5">
+              Removes only points whose payload source exactly matches this value.
+            </p>
+          </div>
+          <input
+            value={source}
+            onChange={(e) => setSource(e.target.value)}
+            placeholder="I-485.pdf"
+            className="w-full px-3 py-2 text-sm bg-background border border-border rounded-lg text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent transition-all"
+          />
+          <input
+            value={sourceConfirm}
+            onChange={(e) => setSourceConfirm(e.target.value)}
+            placeholder={source.trim() ? `Type DELETE SOURCE ${source.trim()}` : "Type DELETE SOURCE <source>"}
+            className="w-full px-3 py-2 text-sm bg-background border border-border rounded-lg text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-all"
+          />
+          <button
+            type="button"
+            onClick={deleteSource}
+            disabled={busy !== null || !source.trim()}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-red-500/30 text-xs font-medium text-red-600 hover:bg-red-50 disabled:opacity-50 transition-colors"
+          >
+            {busy === "source" ? <Loader size={12} className="animate-spin" /> : <Trash size={12} />}
+            Delete source points
+          </button>
+        </div>
+
+        <div className="rounded-xl border border-red-500/30 bg-red-50/40 p-3 space-y-3">
+          <div>
+            <h3 className="text-xs font-semibold text-red-700">Delete entire collection</h3>
+            <p className="text-[11px] text-red-600/80 mt-0.5">
+              This removes all vectors in the collection. Use Reindex NAS PDFs afterward to recreate searchable data.
+            </p>
+          </div>
+          <input
+            value={collectionConfirm}
+            onChange={(e) => setCollectionConfirm(e.target.value)}
+            placeholder={`Type DELETE ${cleanCollection}`}
+            className="w-full px-3 py-2 text-sm bg-background border border-red-500/30 rounded-lg text-foreground placeholder:text-red-400/70 focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-all"
+          />
+          <button
+            type="button"
+            onClick={deleteCollection}
+            disabled={busy !== null}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-red-600 text-white text-xs font-medium hover:opacity-90 disabled:opacity-50 transition-colors"
+          >
+            {busy === "collection" ? <Loader size={12} className="animate-spin" /> : <Trash size={12} />}
+            Delete collection
+          </button>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function SettingsView({
   onBack,
   userEmail,
@@ -1597,6 +1833,8 @@ function SettingsView({
           showIndexedBy
           variant="old"
         />
+
+        {isAdmin && <AdminQdrantPanel onRefreshDocs={onRefreshDocs} />}
 
         {/* Supabase Project */}
         <section className="bg-card border border-border rounded-2xl overflow-hidden">
