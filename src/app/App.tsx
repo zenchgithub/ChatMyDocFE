@@ -86,6 +86,13 @@ interface AppNotice {
 
 const INITIAL_CONVERSATION_ID = "conv-initial";
 
+function makeMessageId(prefix = "m"): string {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return `${prefix}-${crypto.randomUUID()}`;
+  }
+  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
 function emptyConversation(): Conversation {
   return {
     id: INITIAL_CONVERSATION_ID,
@@ -2922,7 +2929,8 @@ export default function App() {
     const convId = activeId;
     const backendConvId = activeConv?.backendId ?? null;
     const isFirst = !activeConv?.messages.length || activeConv.title === "New conversation";
-    const aiId = `m${Date.now() + 1}`;
+    const userMessageId = makeMessageId("user");
+    const aiId = makeMessageId("ai");
 
     // Immediately render user message + empty AI placeholder
     setConversations((prev) =>
@@ -2934,7 +2942,7 @@ export default function App() {
               timestamp: new Date(),
               messages: [
                 ...c.messages,
-                { id: `m${Date.now()}`, role: "user" as const, content: text, timestamp: new Date() },
+                { id: userMessageId, role: "user" as const, content: text, timestamp: new Date() },
                 { id: aiId, role: "ai" as const, content: "", streaming: true, timestamp: new Date() },
               ],
             }
