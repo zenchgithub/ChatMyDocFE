@@ -385,11 +385,11 @@ function TopNav({ user, onSignOut, onSettings, onMenuToggle, apiStatus }: TopNav
 
   return (
     <header
-      className="h-14 flex items-center justify-between px-4 border-b border-border flex-shrink-0 z-20"
+      className="h-14 flex items-center justify-between gap-2 px-3 sm:px-4 border-b border-border flex-shrink-0 z-20"
       style={{ background: "var(--header-bg)", backdropFilter: "blur(12px)" }}
     >
       {/* Left */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2 sm:gap-3 min-w-0">
         <button
           onClick={onMenuToggle}
           className="md:hidden p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-black/5 transition-colors"
@@ -397,11 +397,11 @@ function TopNav({ user, onSignOut, onSettings, onMenuToggle, apiStatus }: TopNav
         >
           <Menu size={18} />
         </button>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 min-w-0">
           <div className="w-7 h-7 rounded-lg bg-primary flex items-center justify-center flex-shrink-0 shadow-sm shadow-primary/30">
             <MessageSquare size={13} className="text-white" />
           </div>
-          <span className="font-bold text-[0.9375rem] tracking-tight">
+          <span className="font-bold text-[0.9375rem] tracking-tight truncate">
             ChatMyDocs<span className="text-accent">.ai</span>
           </span>
         </div>
@@ -442,7 +442,7 @@ function TopNav({ user, onSignOut, onSettings, onMenuToggle, apiStatus }: TopNav
         </button>
 
         {open && (
-          <div className="absolute right-0 top-[calc(100%+6px)] w-56 bg-card border border-border rounded-xl shadow-xl overflow-hidden z-50">
+          <div className="absolute right-0 top-[calc(100%+6px)] w-[min(14rem,calc(100vw-1rem))] bg-card border border-border rounded-xl shadow-xl overflow-hidden z-50">
             <div className="px-3 py-2.5 border-b border-border">
               <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Account</p>
               <p className="text-sm text-foreground mt-0.5 truncate">{user.email}</p>
@@ -654,7 +654,7 @@ function Sidebar({ mobileOpen, onMobileClose, ...inner }: SidebarProps) {
             className="absolute inset-0 bg-black/30 backdrop-blur-sm"
             onClick={onMobileClose}
           />
-          <aside className="relative w-72 bg-sidebar flex flex-col shadow-2xl z-50">
+          <aside className="relative w-[min(20rem,86vw)] bg-sidebar flex flex-col shadow-2xl z-50">
             <SidebarInner {...inner} showClose onClose={onMobileClose} />
           </aside>
         </div>
@@ -736,9 +736,9 @@ function ChatArea({ conv, onCitationClick }: ChatAreaProps) {
 
   if (!conv || conv.messages.length === 0) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center gap-6 p-8 text-center overflow-y-auto">
-        <div className="w-16 h-16 rounded-2xl bg-primary/10 border border-primary/15 flex items-center justify-center">
-          <MessageSquare size={26} className="text-primary" />
+      <div className="flex-1 flex flex-col items-center justify-center gap-5 p-5 sm:p-8 text-center overflow-y-auto">
+        <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-primary/10 border border-primary/15 flex items-center justify-center">
+          <MessageSquare size={24} className="text-primary" />
         </div>
         <div>
           <h2 className="text-lg font-semibold text-foreground">Start a conversation</h2>
@@ -752,7 +752,7 @@ function ChatArea({ conv, onCitationClick }: ChatAreaProps) {
 
   return (
     <div ref={scrollRef} className="flex-1 overflow-y-auto">
-      <div className="max-w-3xl mx-auto px-4 py-6 space-y-6">
+      <div className="max-w-3xl mx-auto px-3 sm:px-4 py-4 sm:py-6 space-y-5 sm:space-y-6">
         {conv.messages.map((msg) => {
           const isUser = msg.role === "user";
           return (
@@ -761,16 +761,16 @@ function ChatArea({ conv, onCitationClick }: ChatAreaProps) {
                 {isUser ? "You" : "ChatMyDocs.ai"}
               </span>
 
-              <div className={`flex items-start gap-2 max-w-[85%] sm:max-w-[72%] ${isUser ? "flex-row-reverse" : ""}`}>
+              <div className={`flex items-start gap-2 w-full max-w-[94%] sm:max-w-[72%] ${isUser ? "flex-row-reverse" : ""}`}>
                 <div
-                  className={`px-4 py-3 rounded-2xl min-w-0 ${
+                  className={`px-3.5 sm:px-4 py-3 rounded-2xl min-w-0 overflow-hidden ${
                     isUser
                       ? "bg-primary text-primary-foreground rounded-br-md shadow-sm shadow-primary/20"
                       : "bg-card border border-border text-foreground rounded-bl-md shadow-sm"
                   }`}
                 >
                   <div
-                    className="text-sm leading-relaxed whitespace-pre-wrap"
+                    className="text-sm leading-relaxed whitespace-pre-wrap break-words"
                     style={{ fontFamily: "'Inter', sans-serif" }}
                   >
                     {!isUser && msg.streaming && !msg.content ? (
@@ -792,7 +792,7 @@ function ChatArea({ conv, onCitationClick }: ChatAreaProps) {
                 </div>
 
                 {!isUser && !msg.streaming && msg.content.trim() && (
-                  <div className="flex flex-col gap-1 pt-1 flex-shrink-0">
+                  <div className="flex flex-col gap-1 pt-1 flex-shrink-0 max-[420px]:hidden">
                     <button
                       onClick={() => copyResponse(msg)}
                       title="Copy response"
@@ -825,7 +825,7 @@ function ChatArea({ conv, onCitationClick }: ChatAreaProps) {
 
               {/* Source chips */}
               {!isUser && !msg.streaming && msg.citations && msg.citations.length > 0 && (
-                <div className="flex flex-wrap gap-1.5 px-1 max-w-[85%] sm:max-w-[72%]">
+                <div className="flex flex-wrap gap-1.5 px-1 w-full max-w-[94%] sm:max-w-[72%]">
                   <span className="text-[11px] text-muted-foreground self-center mr-0.5">Sources:</span>
                   {msg.citations.map((cit) => (
                     <button
@@ -837,6 +837,37 @@ function ChatArea({ conv, onCitationClick }: ChatAreaProps) {
                       {cit.docName} p.{cit.page}
                     </button>
                   ))}
+                </div>
+              )}
+
+              {!isUser && !msg.streaming && msg.content.trim() && (
+                <div className="hidden max-[420px]:flex items-center gap-1 px-1">
+                  <button
+                    onClick={() => copyResponse(msg)}
+                    title="Copy response"
+                    aria-label="Copy response"
+                    className="w-8 h-8 rounded-lg border border-border bg-card text-muted-foreground hover:text-foreground hover:bg-muted transition-colors flex items-center justify-center"
+                  >
+                    {copiedMessageId === msg.id ? <CheckCheck size={14} className="text-emerald-500" /> : <Copy size={14} />}
+                  </button>
+                  <button
+                    onClick={() => shareResponse(msg)}
+                    title="Share response"
+                    aria-label="Share response"
+                    className="w-8 h-8 rounded-lg border border-border bg-card text-muted-foreground hover:text-foreground hover:bg-muted transition-colors flex items-center justify-center"
+                  >
+                    <Share2 size={14} />
+                  </button>
+                  <button
+                    onClick={() => speakResponse(msg)}
+                    title={speakingMessageId === msg.id ? "Stop reading" : "Read response aloud"}
+                    aria-label={speakingMessageId === msg.id ? "Stop reading" : "Read response aloud"}
+                    className={`w-8 h-8 rounded-lg border border-border bg-card hover:bg-muted transition-colors flex items-center justify-center ${
+                      speakingMessageId === msg.id ? "text-accent border-accent/40" : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    <Volume2 size={14} className={speakingMessageId === msg.id ? "animate-pulse" : ""} />
+                  </button>
                 </div>
               )}
 
@@ -893,7 +924,7 @@ function ChatInput({ onSend, onUpload, isStreaming, isUploading, onClear, defaul
   };
 
   return (
-    <div className="flex-shrink-0 border-t border-border px-4 py-3 bg-card/50 backdrop-blur-sm">
+    <div className="flex-shrink-0 border-t border-border px-3 sm:px-4 py-2.5 sm:py-3 bg-card/50 backdrop-blur-sm">
       <div className="max-w-3xl mx-auto">
         <div className="flex items-end gap-2 bg-input-background border border-border rounded-2xl px-3 py-2 focus-within:border-ring/50 focus-within:ring-2 focus-within:ring-ring/10 transition-all">
           <textarea
@@ -904,7 +935,7 @@ function ChatInput({ onSend, onUpload, isStreaming, isUploading, onClear, defaul
             onInput={autoResize}
             placeholder="Ask anything about your documents…"
             rows={1}
-            className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground resize-none outline-none leading-relaxed py-1.5 min-h-[36px]"
+            className="flex-1 min-w-0 bg-transparent text-base sm:text-sm text-foreground placeholder:text-muted-foreground resize-none outline-none leading-relaxed py-1.5 min-h-[36px]"
             style={{ fontFamily: "'Inter', sans-serif" }}
           />
           <button
@@ -917,7 +948,7 @@ function ChatInput({ onSend, onUpload, isStreaming, isUploading, onClear, defaul
           </button>
         </div>
 
-        <div className="flex items-center gap-1 mt-1.5">
+        <div className="flex items-center gap-1 mt-1.5 overflow-x-auto pb-0.5">
           <input
             ref={fileRef}
             type="file"
@@ -932,17 +963,19 @@ function ChatInput({ onSend, onUpload, isStreaming, isUploading, onClear, defaul
           <button
             onClick={() => fileRef.current?.click()}
             disabled={isUploading}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs text-muted-foreground hover:text-foreground hover:bg-black/5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs text-muted-foreground hover:text-foreground hover:bg-black/5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap flex-shrink-0"
           >
             {isUploading ? <Loader size={12} className="animate-spin" /> : <Paperclip size={12} />}
-            {isUploading ? "Uploading..." : "Upload documents"}
+            <span className="hidden min-[390px]:inline">{isUploading ? "Uploading..." : "Upload documents"}</span>
+            <span className="min-[390px]:hidden">{isUploading ? "Uploading..." : "Upload"}</span>
           </button>
           <button
             onClick={onClear}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs text-muted-foreground hover:text-red-500 hover:bg-red-50 transition-colors"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs text-muted-foreground hover:text-red-500 hover:bg-red-50 transition-colors whitespace-nowrap flex-shrink-0"
           >
             <Trash2 size={12} />
-            Clear history
+            <span className="hidden min-[390px]:inline">Clear history</span>
+            <span className="min-[390px]:hidden">Clear</span>
           </button>
           <span className="ml-auto text-[10px] text-muted-foreground/50 hidden sm:block">
             Enter ↵ to send · Shift+Enter for new line
@@ -1014,12 +1047,12 @@ function SourcePanel({ citation, onClose }: { citation: Citation; onClose: () =>
   const [openError, setOpenError] = useState<string | null>(null);
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex justify-end bg-black/20 sm:bg-transparent" onClick={onClose}>
       <div
-        className="w-full max-w-sm h-full bg-card border-l border-border shadow-2xl flex flex-col overflow-hidden"
+        className="w-full sm:max-w-sm h-full bg-card sm:border-l border-border shadow-2xl flex flex-col overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between px-5 py-4 border-b border-border flex-shrink-0">
+        <div className="flex items-center justify-between px-4 sm:px-5 py-4 border-b border-border flex-shrink-0">
           <h3 className="font-semibold text-sm text-foreground">Source</h3>
           <button
             onClick={onClose}
@@ -1029,7 +1062,7 @@ function SourcePanel({ citation, onClose }: { citation: Citation; onClose: () =>
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-5 space-y-5">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-5">
           <div className="flex items-center gap-3 p-3 rounded-xl bg-muted border border-border">
             <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
               <FileText size={18} className="text-primary" />
@@ -1426,21 +1459,21 @@ function IndexedDocumentsSection({
 
   return (
     <section className="bg-card border border-border rounded-2xl overflow-hidden">
-      <div className="px-5 py-4 border-b border-border flex items-center justify-between gap-3">
+      <div className="px-4 sm:px-5 py-4 border-b border-border flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div className="flex items-center gap-3 min-w-0">
           <div className={`w-8 h-8 rounded-lg ${iconBg} flex items-center justify-center flex-shrink-0`}>
             <SectionIcon size={15} className={iconClass} />
           </div>
-          <div>
+          <div className="min-w-0">
             <h2 className="text-sm font-semibold text-foreground">{title}</h2>
             <p className="text-xs text-muted-foreground">
               {description} · {docs.length} document{docs.length === 1 ? "" : "s"}
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 w-full sm:w-auto">
           {onUpload && (
-            <label className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-black/5 transition-colors ${isUploading ? "opacity-50 pointer-events-none" : "cursor-pointer"}`}>
+            <label className={`flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-black/5 transition-colors flex-1 sm:flex-none ${isUploading ? "opacity-50 pointer-events-none" : "cursor-pointer"}`}>
               {isUploading ? <Loader size={12} className="animate-spin" /> : <Paperclip size={12} />}
               {isUploading ? "Uploading..." : uploadLabel}
               <input
@@ -1459,7 +1492,7 @@ function IndexedDocumentsSection({
           <button
             onClick={onRefreshDocs}
             disabled={docsLoading}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-black/5 disabled:opacity-50 transition-colors"
+            className="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-black/5 disabled:opacity-50 transition-colors flex-1 sm:flex-none"
           >
             <RefreshCw size={12} className={docsLoading ? "animate-spin" : ""} />
             Refresh
@@ -1473,13 +1506,13 @@ function IndexedDocumentsSection({
           <div className="px-5 py-4 text-sm text-muted-foreground">No indexed documents found.</div>
         ) : (
           docs.map((doc) => (
-            <div key={doc.id} className="px-5 py-3.5 flex items-center gap-3">
+            <div key={doc.id} className="px-4 sm:px-5 py-3.5 flex items-start sm:items-center gap-3">
               <div className="w-9 h-9 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
                 <FileText size={15} className="text-primary" />
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-foreground truncate">{doc.name}</p>
-                <p className="text-xs text-muted-foreground truncate">
+                <p className="text-xs text-muted-foreground sm:truncate leading-relaxed">
                   {doc.collection} · {doc.pages} page{doc.pages === 1 ? "" : "s"} · {doc.chunks} chunk{doc.chunks === 1 ? "" : "s"} · {doc.size} · indexed {formatIndexedDate(doc.last_indexed)}
                   {showIndexedBy && doc.indexed_by_email ? ` · indexed by ${doc.indexed_by_email}` : ""}
                 </p>
@@ -1999,7 +2032,7 @@ function SettingsView({
 
   return (
     <div className="flex-1 overflow-y-auto">
-      <div className="max-w-2xl mx-auto px-4 py-8 space-y-7">
+      <div className="max-w-2xl mx-auto px-3 sm:px-4 py-5 sm:py-8 space-y-5 sm:space-y-7">
         {/* Header */}
         <div className="flex items-center gap-3">
           <button
@@ -2008,9 +2041,9 @@ function SettingsView({
           >
             <X size={16} />
           </button>
-          <div>
+          <div className="min-w-0">
             <h1 className="text-xl font-bold text-foreground">Settings</h1>
-            <p className="text-sm text-muted-foreground">{userEmail}</p>
+            <p className="text-sm text-muted-foreground truncate">{userEmail}</p>
           </div>
         </div>
 
@@ -3106,7 +3139,7 @@ export default function App() {
   if (needsPasswordSetup) return <SetPasswordView onComplete={() => setNeedsPasswordSetup(false)} />;
 
   return (
-    <div className="h-screen flex flex-col bg-background text-foreground overflow-hidden">
+    <div className="h-screen h-dvh flex flex-col bg-background text-foreground overflow-hidden">
       <TopNav
         user={user}
         onSignOut={handleSignOut}
@@ -3116,7 +3149,7 @@ export default function App() {
       />
 
       {notice && (
-        <div className="fixed top-4 right-4 z-50 w-[min(420px,calc(100vw-2rem))]">
+        <div className="fixed top-3 left-3 right-3 sm:left-auto sm:top-4 sm:right-4 z-50 sm:w-[min(420px,calc(100vw-2rem))]">
           <div className={`rounded-2xl border shadow-xl px-4 py-3 flex items-start gap-3 ${
             notice.type === "success"
               ? "bg-emerald-50 border-emerald-200 text-emerald-950"
@@ -3146,7 +3179,7 @@ export default function App() {
         <Sidebar
           conversations={conversations}
           activeId={activeId}
-          onSelect={(id) => { setActiveId(id); setView("chat"); }}
+          onSelect={(id) => { setActiveId(id); setView("chat"); setMobileSidebarOpen(false); }}
           onNewChat={handleNewChat}
           onGuide={() => setView("guide")}
           onDelete={handleDelete}
